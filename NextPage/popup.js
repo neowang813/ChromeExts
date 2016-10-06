@@ -56,8 +56,10 @@ function nextUrl(url) {
   if (re2.test(url)) {
     var n = Number(RegExp.$2)+1;
     return RegExp.$1 + "_" + n + ".html";
-  } else {
+  } else if (re1.test(url)){
     return RegExp.$1 + "_2.html";
+  } else {
+    return url;
   }
 }
 
