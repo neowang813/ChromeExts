@@ -34,7 +34,7 @@ function getCurrentTabUrl(callback) {
     // "url" properties.
     console.assert(typeof url == 'string', 'tab.url should be a string');
 
-    callback(url);
+    callback(url, tab);
   });
 
   // Most methods of the Chrome extension APIs are asynchronous. This means that
@@ -47,72 +47,47 @@ function getCurrentTabUrl(callback) {
   // alert(url); // Shows "undefined", because chrome.tabs.query is async.
 }
 
-/**
- * @param {string} searchTerm - Search term for Google Image search.
- * @param {function(string,number,number)} callback - Called when an image has
- *   been found. The callback gets the URL, width and height of the image.
- * @param {function(string)} errorCallback - Called when the image is not found.
- *   The callback gets a string that describes the failure reason.
- */
-function getImageUrl(searchTerm, callback, errorCallback) {
-  // Google image search - 100 searches per day.
-  // https://developers.google.com/image-search/
-  var searchUrl = 'https://ajax.googleapis.com/ajax/services/search/images' +
-    '?v=1.0&q=' + encodeURIComponent(searchTerm);
-  var x = new XMLHttpRequest();
-  x.open('GET', searchUrl);
-  // The Google image search API responds with JSON, so let Chrome parse it.
-  x.responseType = 'json';
-  x.onload = function() {
-    // Parse and process the response from Google Image Search.
-    var response = x.response;
-    if (!response || !response.responseData || !response.responseData.results ||
-        response.responseData.results.length === 0) {
-      errorCallback('No response from Google Image search!');
-      return;
-    }
-    var firstResult = response.responseData.results[0];
-    // Take the thumbnail instead of the full image to get an approximately
-    // consistent image size.
-    var imageUrl = firstResult.tbUrl;
-    var width = parseInt(firstResult.tbWidth);
-    var height = parseInt(firstResult.tbHeight);
-    console.assert(
-        typeof imageUrl == 'string' && !isNaN(width) && !isNaN(height),
-        'Unexpected respose from the Google Image Search API!');
-    callback(imageUrl, width, height);
-  };
-  x.onerror = function() {
-    errorCallback('Network error.');
-  };
-  x.send();
+
+var re1 = /(.*).html/;
+var re2 = /(.*)_(\d+).html/;
+var gurl;
+
+function nextUrl(url) {
+  if (re2.test(url)) {
+    var n = Number(RegExp.$2)+1;
+    return RegExp.$1 + "_" + n + ".html";
+  } else {
+    return RegExp.$1 + "_2.html";
+  }
 }
 
-function renderStatus(statusText) {
-  document.getElementById('status').textContent = statusText;
+function prevUrl(url) {
+  if (re2.test(url)) {
+    var n = Number(RegExp.$2);
+    if (n != 2) {
+      n=n-1;
+      return RegExp.$1 + "_" + n + ".html";
+    }
+    else {
+      return RegExp.$1 + ".html";
+    }
+  } 
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-  getCurrentTabUrl(function(url) {
-    // Put the image URL in Google search.
-    renderStatus('Performing Google Image search for ' + url);
-
-    getImageUrl(url, function(imageUrl, width, height) {
-
-      renderStatus('Search term: ' + url + '\n' +
-          'Google image search result: ' + imageUrl);
-      var imageResult = document.getElementById('image-result');
-      // Explicitly set the width/height to minimize the number of reflows. For
-      // a single image, this does not matter, but if you're going to embed
-      // multiple external images in your page, then the absence of width/height
-      // attributes causes the popup to resize multiple times.
-      imageResult.width = width;
-      imageResult.height = height;
-      imageResult.src = imageUrl;
-      imageResult.hidden = false;
-
-    }, function(errorMessage) {
-      renderStatus('Cannot display image. ' + errorMessage);
-    });
+  getCurrentTabUrl(function(url, tab) {
+   
+   
+    gurl=url;
+    document.getElementById("prev-button").onclick=function(){
+      gurl=prevUrl(gurl);
+      chrome.tabs.update(tab.id, {url: gurl});
+    };
+    document.getElementById("next-button").onclick=function(){
+      gurl=nextUrl(gurl);
+      chrome.tabs.update(tab.id, {url: gurl});
+    };
+   
+   
   });
 });
